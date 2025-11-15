@@ -1,0 +1,10 @@
+Student Marks Analyzer Report
+Number of students: 5
+Cohort average: 72.4
+
+Per-student summaries:
+S001,Ayesha Perera,83.7,91,78,A
+S002,Ruwan Silva,64.3,70,59,C
+S003,Mala Fernando,91.7,95,88,A
+S004,Kasun Jay,48.3,52,45,F
+S005,Nimali Perera,74.0,76,72,B
