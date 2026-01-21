@@ -10,20 +10,28 @@ import Processing
 import Utils (formatDouble, trim)
 import System.IO (withFile, IOMode(..), hPutStrLn)
 import Control.Monad (forM_)
+import Control.Exception (catch, SomeException)
 
 -- Read file, parse lines into Students, ignoring invalid lines but reporting count
 readStudentsFromFile :: FilePath -> IO [Student]
 readStudentsFromFile path = do
-  content <- readFile path
-  let ls = filter (not . null) $ lines content
-      parsed = map (\l -> (l, parseStudentLine l)) ls
-      good = [s | (_, Just s) <- parsed]
-      badCount = length [() | (_, Nothing) <- parsed]
-  putStrLn $ "Loaded " ++ show (length good) ++ " students."
-  if badCount > 0
-    then putStrLn $ "Ignored " ++ show badCount ++ " invalid lines."
-    else return ()
-  return good
+  catch
+    (do
+      content <- readFile path
+      let ls = filter (not . null) $ lines content
+          parsed = map (\l -> (l, parseStudentLine l)) ls
+          good = [s | (_, Just s) <- parsed]
+          badCount = length [() | (_, Nothing) <- parsed]
+      putStrLn $ "Loaded " ++ show (length good) ++ " students."
+      if badCount > 0
+        then putStrLn $ "Ignored " ++ show badCount ++ " invalid lines."
+        else return ()
+      return good
+    )
+    (\(e :: SomeException) -> do
+      putStrLn $ "Error reading file " ++ path ++ ": " ++ show e
+      return []
+    )
 
 -- Simple console-based entry: user enters lines in the same CSV format; empty line ends
 readStudentsFromConsole :: IO [Student]

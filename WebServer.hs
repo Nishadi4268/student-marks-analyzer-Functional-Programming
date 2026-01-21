@@ -7,12 +7,28 @@ module Main where
 
 import Web.Scotty
 import DataTypes
-import IOHandler (readStudentsFromFile)
+import IOHandler (readStudentsFromFile, writeSummaryToFile)
 import Processing (studentAverage, studentSummary, cohortAverage, gradeDistribution)
-import Data.Aeson (object, (.=), Value)
+import Data.Aeson (object, (.=), Value, FromJSON(..), (.:), withObject)
 import qualified Data.Aeson as Aeson
 import qualified Data.Text.Lazy as TL
 import Control.Monad.IO.Class (liftIO)
+import System.IO (appendFile)
+import qualified Control.Exception as E
+
+-- JSON request format for adding a student
+data AddStudentRequest = AddStudentRequest
+  { reqSid :: String
+  , reqName :: String
+  , reqMarks :: [Int]
+  } deriving (Show)
+
+instance FromJSON AddStudentRequest where
+  parseJSON = withObject "AddStudentRequest" $ \v ->
+    AddStudentRequest
+      <$> v .: "sid"
+      <*> v .: "name"
+      <*> v .: "marks"
 
 -- Convert Grade to String
 gradeToStr :: Grade -> String
@@ -44,6 +60,15 @@ summaryToJson sts =
   where
     toObj (g, c) = object [ "grade" .= gradeToStr g, "count" .= c ]
 
+-- Write a student to CSV file
+appendStudentToFile :: FilePath -> Student -> IO ()
+appendStudentToFile path st = do
+  let marksStr = unwords $ map (\m -> show m ++ ";") (init (marks st)) ++ [show (last (marks st))]
+      marksStr' = take (length marksStr - 1) marksStr  -- Remove trailing semicolon from last iteration, correct below
+      marksStr'' = concatMap (\m -> show m ++ ";") (init (marks st)) ++ show (last (marks st))
+      csvLine = sid st ++ "," ++ name st ++ "," ++ marksStr'' ++ "\n"
+  appendFile path csvLine
+
 main :: IO ()
 main = scotty 3000 $ do
   -- Serve static index
@@ -62,5 +87,31 @@ main = scotty 3000 $ do
     sts <- liftIO $ readStudentsFromFile "students.csv"
     json $ summaryToJson sts
 
+  -- API: add new student
+  post "/api/add-student" $ do
+    req <- jsonData :: ActionM AddStudentRequest
+    
+    -- Validate input
+    if null (reqSid req) || null (reqName req) || null (reqMarks req)
+      then text "Error: Missing required fields (sid, name, marks)"
+      else if any (\m -> m < 0 || m > 100) (reqMarks req)
+        then text "Error: All marks must be between 0 and 100"
+        else do
+          -- Create student record
+          let newStudent = Student (reqSid req) (reqName req) (reqMarks req)
+          
+          -- Append to CSV file
+          result <- liftIO $ E.catch
+            (appendStudentToFile "students.csv" newStudent >> return True)
+            (\(e :: E.SomeException) -> do
+              putStrLn $ "Error writing to file: " ++ show e
+              return False
+            )
+          
+          if result
+            then json $ object ["message" .= ("Student added successfully" :: String), "student" .= studentToJson newStudent]
+            else text "Error: Failed to write student to file"
+
   -- Simple health endpoint
   get "/health" $ text "OK"
+

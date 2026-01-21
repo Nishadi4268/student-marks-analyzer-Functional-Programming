@@ -277,6 +277,105 @@ function setupTabs() {
   });
 }
 
+// Modal management
+function openAddStudentModal() {
+  document.getElementById('add-student-modal').classList.add('active');
+  document.getElementById('student-id').focus();
+}
+
+function closeAddStudentModal() {
+  document.getElementById('add-student-modal').classList.remove('active');
+  document.getElementById('add-student-form').reset();
+}
+
+// Add new student via API
+async function addStudent(event) {
+  event.preventDefault();
+  
+  const sid = document.getElementById('student-id').value.trim();
+  const name = document.getElementById('student-name').value.trim();
+  const marksInput = document.getElementById('student-marks').value.trim();
+
+  // Validate inputs
+  if (!sid || !name || !marksInput) {
+    showError('Please fill in all fields');
+    return;
+  }
+
+  // Parse marks
+  const markStrings = marksInput.split(';').map(m => m.trim());
+  const marks = [];
+  
+  for (const markStr of markStrings) {
+    const mark = parseInt(markStr, 10);
+    if (isNaN(mark)) {
+      showError(`Invalid mark: "${markStr}". All marks must be numbers.`);
+      return;
+    }
+    if (mark < 0 || mark > 100) {
+      showError(`Mark ${mark} is out of range. Marks should be between 0 and 100.`);
+      return;
+    }
+    marks.push(mark);
+  }
+
+  if (marks.length === 0) {
+    showError('Please enter at least one mark');
+    return;
+  }
+
+  // Send to backend
+  try {
+    const response = await fetch('/api/add-student', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sid: sid,
+        name: name,
+        marks: marks
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Failed to add student');
+    }
+
+    // Success
+    showSuccess('Student added successfully!');
+    closeAddStudentModal();
+    
+    // Refresh data after a short delay
+    setTimeout(() => refresh(), 500);
+  } catch (error) {
+    showError('Error adding student: ' + error.message);
+  }
+}
+
+// Show success message
+function showSuccess(message) {
+  const container = document.getElementById('error-container');
+  const successDiv = document.createElement('div');
+  successDiv.style.cssText = `
+    background: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+  `;
+  successDiv.textContent = message;
+  container.innerHTML = '';
+  container.appendChild(successDiv);
+  
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    successDiv.remove();
+  }, 3000);
+}
+
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
@@ -284,6 +383,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('refresh-btn').addEventListener('click', refresh);
   document.getElementById('search-input').addEventListener('input', filterStudents);
   document.getElementById('export-btn').addEventListener('click', exportReport);
+  
+  // Modal event listeners
+  document.getElementById('add-student-btn').addEventListener('click', openAddStudentModal);
+  document.getElementById('close-modal').addEventListener('click', closeAddStudentModal);
+  document.getElementById('cancel-btn').addEventListener('click', closeAddStudentModal);
+  document.getElementById('add-student-form').addEventListener('submit', addStudent);
+  
+  // Close modal when clicking outside of it
+  document.getElementById('add-student-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'add-student-modal') {
+      closeAddStudentModal();
+    }
+  });
 
   // Load data on page load
   refresh();
