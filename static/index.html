@@ -199,6 +199,30 @@
       text-align: center;
     }
 
+    .action-btn {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.9em;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .action-btn:hover {
+      background: #45a049;
+      transform: translateY(-1px);
+    }
+
+    .action-btn.danger {
+      background: #dc3545;
+    }
+
+    .action-btn.danger:hover {
+      background: #c82333;
+    }
+
     .grade-A { background: #28a745; }
     .grade-B { background: #17a2b8; }
     .grade-C { background: #ffc107; color: #333; }
@@ -461,6 +485,28 @@
       <button id="export-btn">📥 Export Report</button>
     </div>
 
+    <div class="controls" style="flex-wrap: wrap; gap: 10px 16px; align-items: center;">
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+        <strong>Grades:</strong>
+        <label><input type="checkbox" class="grade-filter" value="A" checked> A</label>
+        <label><input type="checkbox" class="grade-filter" value="B" checked> B</label>
+        <label><input type="checkbox" class="grade-filter" value="C" checked> C</label>
+        <label><input type="checkbox" class="grade-filter" value="D" checked> D</label>
+        <label><input type="checkbox" class="grade-filter" value="F" checked> F</label>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+        <strong>Avg range:</strong>
+        <input type="number" id="avg-min" placeholder="Min" min="0" max="100" style="width:90px;">
+        <input type="number" id="avg-max" placeholder="Max" min="0" max="100" style="width:90px;">
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+        <strong>Top N (per subject):</strong>
+        <input type="number" id="topn-subject" value="3" min="1" max="10" style="width:70px;">
+      </div>
+      <button id="apply-filters-btn">Apply Filters</button>
+      <button id="clear-filters-btn" class="action-btn">Clear</button>
+    </div>
+
     <div id="stats-container" class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Total Students</div>
@@ -477,6 +523,14 @@
       <div class="stat-card">
         <div class="stat-label">Lowest Average</div>
         <div class="stat-value" id="lowest-avg">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Median Average</div>
+        <div class="stat-value" id="median-avg">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Std Deviation</div>
+        <div class="stat-value" id="stddev-avg">0.0</div>
       </div>
     </div>
 
@@ -499,12 +553,19 @@
             <th onclick="sortTable(5)">Max <span class="sort-indicator"></span></th>
             <th onclick="sortTable(6)">Min <span class="sort-indicator"></span></th>
             <th onclick="sortTable(7)">Grade <span class="sort-indicator"></span></th>
+            <th onclick="sortTable(8)">Percentile <span class="sort-indicator"></span></th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="students-tbody">
-          <tr><td colspan="8" class="loading">Loading students...</td></tr>
+          <tr><td colspan="10" class="loading">Loading students...</td></tr>
         </tbody>
       </table>
+
+      <div style="margin-top:24px;">
+        <h3>Subject Toppers (per column)</h3>
+        <div id="subject-toppers"></div>
+      </div>
     </div>
 
     <!-- Grades Distribution Tab -->
@@ -577,6 +638,39 @@
         <div class="form-actions">
           <button type="submit" class="btn-submit">✓ Add Student</button>
           <button type="button" class="btn-cancel" id="cancel-btn">✕ Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Student Modal -->
+  <div id="edit-student-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Student</h2>
+        <button class="close-btn" id="close-edit-modal">&times;</button>
+      </div>
+      <form id="edit-student-form">
+        <div class="form-group">
+          <label for="edit-student-id">Student ID</label>
+          <input type="text" id="edit-student-id" name="sid" readonly>
+          <div class="form-help">Student ID cannot be changed</div>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-student-name">Full Name *</label>
+          <input type="text" id="edit-student-name" name="name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-student-marks">Marks (separated by semicolon) *</label>
+          <input type="text" id="edit-student-marks" name="marks" required>
+          <div class="form-help">Enter marks separated by semicolon (;) - e.g., 75;80;85</div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-submit">💾 Save Changes</button>
+          <button type="button" class="btn-cancel" id="cancel-edit-btn">✕ Cancel</button>
         </div>
       </form>
     </div>

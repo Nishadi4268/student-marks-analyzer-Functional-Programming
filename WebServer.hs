@@ -13,8 +13,9 @@ import Data.Aeson (object, (.=), Value, FromJSON(..), (.:), withObject)
 import qualified Data.Aeson as Aeson
 import qualified Data.Text.Lazy as TL
 import Control.Monad.IO.Class (liftIO)
-import System.IO (appendFile)
+import System.IO (appendFile, writeFile)
 import qualified Control.Exception as E
+import Data.List (intercalate)
 
 -- JSON request format for adding a student
 data AddStudentRequest = AddStudentRequest
@@ -23,12 +24,20 @@ data AddStudentRequest = AddStudentRequest
   , reqMarks :: [Int]
   } deriving (Show)
 
+data DeleteStudentRequest = DeleteStudentRequest
+  { delSid :: String
+  } deriving (Show)
+
 instance FromJSON AddStudentRequest where
   parseJSON = withObject "AddStudentRequest" $ \v ->
     AddStudentRequest
       <$> v .: "sid"
       <*> v .: "name"
       <*> v .: "marks"
+
+instance FromJSON DeleteStudentRequest where
+  parseJSON = withObject "DeleteStudentRequest" $ \v ->
+    DeleteStudentRequest <$> v .: "sid"
 
 -- Convert Grade to String
 gradeToStr :: Grade -> String
@@ -60,14 +69,14 @@ summaryToJson sts =
   where
     toObj (g, c) = object [ "grade" .= gradeToStr g, "count" .= c ]
 
--- Write a student to CSV file
+studentToCsvLine :: Student -> String
+studentToCsvLine st = sid st ++ "," ++ name st ++ "," ++ intercalate ";" (map show (marks st))
+
 appendStudentToFile :: FilePath -> Student -> IO ()
-appendStudentToFile path st = do
-  let marksStr = unwords $ map (\m -> show m ++ ";") (init (marks st)) ++ [show (last (marks st))]
-      marksStr' = take (length marksStr - 1) marksStr  -- Remove trailing semicolon from last iteration, correct below
-      marksStr'' = concatMap (\m -> show m ++ ";") (init (marks st)) ++ show (last (marks st))
-      csvLine = sid st ++ "," ++ name st ++ "," ++ marksStr'' ++ "\n"
-  appendFile path csvLine
+appendStudentToFile path st = appendFile path (studentToCsvLine st ++ "\n")
+
+writeStudentsToFile :: FilePath -> [Student] -> IO ()
+writeStudentsToFile path sts = writeFile path $ unlines (map studentToCsvLine sts)
 
 main :: IO ()
 main = scotty 3000 $ do
@@ -111,6 +120,66 @@ main = scotty 3000 $ do
           if result
             then json $ object ["message" .= ("Student added successfully" :: String), "student" .= studentToJson newStudent]
             else text "Error: Failed to write student to file"
+
+  -- API: edit existing student
+  post "/api/edit-student" $ do
+    req <- jsonData :: ActionM AddStudentRequest
+
+    if null (reqSid req) || null (reqName req) || null (reqMarks req)
+      then text "Error: Missing required fields (sid, name, marks)"
+      else if any (\m -> m < 0 || m > 100) (reqMarks req)
+        then text "Error: All marks must be between 0 and 100"
+        else do
+          -- Load current students
+          sts <- liftIO $ readStudentsFromFile "students.csv"
+
+          let (found, updated) = foldr
+                (\s (f, acc) ->
+                  if sid s == reqSid req
+                    then (True, Student (reqSid req) (reqName req) (reqMarks req) : acc)
+                    else (f, s : acc)
+                )
+                (False, [])
+                sts
+
+          if not found
+            then text "Error: Student not found"
+            else do
+              result <- liftIO $ E.catch
+                (writeStudentsToFile "students.csv" updated >> return True)
+                (\(e :: E.SomeException) -> do
+                  putStrLn $ "Error writing to file: " ++ show e
+                  return False
+                )
+
+              if result
+                then json $ object ["message" .= ("Student updated successfully" :: String)
+                                   , "student" .= studentToJson (Student (reqSid req) (reqName req) (reqMarks req))
+                                   ]
+                else text "Error: Failed to update student file"
+
+  -- API: delete student
+  post "/api/delete-student" $ do
+    req <- jsonData :: ActionM DeleteStudentRequest
+
+    if null (delSid req)
+      then text "Error: Missing required field sid"
+      else do
+        sts <- liftIO $ readStudentsFromFile "students.csv"
+        let filtered = filter (\s -> sid s /= delSid req) sts
+        if length filtered == length sts
+          then text "Error: Student not found"
+          else do
+            result <- liftIO $ E.catch
+              (writeStudentsToFile "students.csv" filtered >> return True)
+              (\(e :: E.SomeException) -> do
+                putStrLn $ "Error writing to file: " ++ show e
+                return False
+              )
+
+            if result
+              then json $ object ["message" .= ("Student deleted successfully" :: String)]
+              else text "Error: Failed to delete student"
 
   -- Simple health endpoint
   get "/health" $ text "OK"
