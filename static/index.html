@@ -1,29 +1,387 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Marks Analyzer</title>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;margin:16px}
-    table{border-collapse:collapse;width:100%}
-    th,td{border:1px solid #ddd;padding:8px;text-align:left}
-    th{background:#f4f4f4}
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 30px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 20px;
+    }
+
+    h1 {
+      color: #333;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .header-subtitle {
+      color: #666;
+      font-size: 1.1em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    button, input {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    button {
+      background: #667eea;
+      color: white;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button.active {
+      background: #764ba2;
+    }
+
+    input[type="text"], input[type="number"] {
+      border: 2px solid #ddd;
+      padding: 10px 12px;
+      border-radius: 6px;
+      flex: 1;
+      min-width: 200px;
+      transition: border-color 0.3s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #eee;
+    }
+
+    .tab-btn {
+      background: transparent;
+      color: #667eea;
+      border: none;
+      padding: 12px 20px;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .tab-btn.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    thead {
+      background: #f8f9fa;
+      border-bottom: 2px solid #667eea;
+    }
+
+    th {
+      padding: 15px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+
+    th:hover {
+      background: #e9ecef;
+    }
+
+    td {
+      padding: 12px 15px;
+      border-bottom: 1px solid #eee;
+    }
+
+    tbody tr {
+      transition: background-color 0.2s ease;
+    }
+
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+
+    .grade-badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      color: white;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    .grade-A { background: #28a745; }
+    .grade-B { background: #17a2b8; }
+    .grade-C { background: #ffc107; color: #333; }
+    .grade-D { background: #fd7e14; }
+    .grade-F { background: #dc3545; }
+
+    .grade-chart {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .grade-item {
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      color: white;
+      font-weight: bold;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .grade-item .count {
+      font-size: 2em;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      border-left: 4px solid #dc3545;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+      font-style: italic;
+    }
+
+    .sort-indicator {
+      margin-left: 5px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 1.8em;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .grade-chart {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      table {
+        font-size: 0.9em;
+      }
+
+      th, td {
+        padding: 10px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Student Marks Analyzer</h1>
-  <div>
-    <button id="refresh">Refresh</button>
-    <span id="count"></span>
-    <div id="cohort"></div>
+  <div class="container">
+    <header>
+      <h1>📊 Student Marks Analyzer</h1>
+      <p class="header-subtitle">Comprehensive Academic Performance Dashboard</p>
+    </header>
+
+    <div id="error-container"></div>
+
+    <div class="controls">
+      <button id="refresh-btn">🔄 Refresh Data</button>
+      <input type="text" id="search-input" placeholder="Search by student name or ID...">
+      <button id="export-btn">📥 Export Report</button>
+    </div>
+
+    <div id="stats-container" class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Students</div>
+        <div class="stat-value" id="total-count">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Cohort Average</div>
+        <div class="stat-value" id="cohort-avg">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Highest Average</div>
+        <div class="stat-value" id="highest-avg">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Lowest Average</div>
+        <div class="stat-value" id="lowest-avg">0.0</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="students-tab">Students List</button>
+      <button class="tab-btn" data-tab="grades-tab">Grade Distribution</button>
+    </div>
+
+    <!-- Students Tab -->
+    <div id="students-tab" class="tab-content active">
+      <h2>Student Performance Details</h2>
+      <table id="students-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th onclick="sortTable(1)">Student ID <span class="sort-indicator"></span></th>
+            <th onclick="sortTable(2)">Name <span class="sort-indicator"></span></th>
+            <th>Marks</th>
+            <th onclick="sortTable(4)">Average <span class="sort-indicator"></span></th>
+            <th onclick="sortTable(5)">Max <span class="sort-indicator"></span></th>
+            <th onclick="sortTable(6)">Min <span class="sort-indicator"></span></th>
+            <th onclick="sortTable(7)">Grade <span class="sort-indicator"></span></th>
+          </tr>
+        </thead>
+        <tbody id="students-tbody">
+          <tr><td colspan="8" class="loading">Loading students...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Grades Distribution Tab -->
+    <div id="grades-tab" class="tab-content">
+      <h2>Grade Distribution</h2>
+      <div id="grade-distribution" class="grade-chart">
+        <div class="grade-item grade-A">
+          <span>Grade A</span>
+          <span class="count" id="count-A">0</span>
+        </div>
+        <div class="grade-item grade-B">
+          <span>Grade B</span>
+          <span class="count" id="count-B">0</span>
+        </div>
+        <div class="grade-item grade-C">
+          <span>Grade C</span>
+          <span class="count" id="count-C">0</span>
+        </div>
+        <div class="grade-item grade-D">
+          <span>Grade D</span>
+          <span class="count" id="count-D">0</span>
+        </div>
+        <div class="grade-item grade-F">
+          <span>Grade F</span>
+          <span class="count" id="count-F">0</span>
+        </div>
+      </div>
+      <div id="grade-details">
+        <h3 style="margin-top: 30px; margin-bottom: 15px;">Grade Summary</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Grade</th>
+              <th>Count</th>
+              <th>Percentage</th>
+            </tr>
+          </thead>
+          <tbody id="grade-summary-tbody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
-  <h2>Students</h2>
-  <table id="students">
-    <thead>
-      <tr><th>#</th><th>SID</th><th>Name</th><th>Marks</th><th>Average</th><th>Max</th><th>Min</th><th>Grade</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+
   <script src="/static/app.js"></script>
 </body>
 </html>
